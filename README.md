@@ -15,5 +15,5 @@ cd /opt/kafka
 ```
 Run standalone connect read from MySQL and write to file:
 ```bash
-./bin/connect-standalone.sh config/connect-standalone.properties config/mysql-source.properties config/file-sink.properties
+./bin/connect-standalone.sh config/connect-standalone.properties config/mysql-source.properties config/file-sink-db.properties
 ```
