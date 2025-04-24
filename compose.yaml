@@ -1,0 +1,82 @@
+services:
+  kafka:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    hostname: kafka
+    container_name: kafka
+    volumes:
+      - ./output:/tmp
+    ports:
+      - "2181:2181"
+      - "9092:9092"
+      - "9091:9091"
+    environment:
+      ALLOW_PLAINTEXT_LISTENER: yes
+      KAFKA_ENABLE_KRAFT: yes
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: "INTERNAL://:29092,EXTERNAL://:9092,CONTROLLER://kafka:29093"
+      KAFKA_ADVERTISED_LISTENERS: "INTERNAL://kafka:29092,EXTERNAL://localhost:9092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_NODE_ID: 1
+      KAFKA_JMX_PORT: 9101
+      KAFKA_JMX_HOSTNAME: localhost
+      CLUSTER_ID: "myRandomSecureClusterId"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_INTER_BROKER_LISTENER_NAME: "INTERNAL"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    networks:
+      - kaka_network
+
+  mysql:
+    image: mysql:9.1.0
+    hostname: mysql
+    container_name: mysql
+    volumes:
+      - ./mysql-init.sql:/docker-entrypoint-initdb.d/mysql-init.sql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    networks:
+      - kaka_network
+
+  redpanda-console:
+    image: redpandadata/console:v2.8.1
+    hostname: redpanda-console
+    container_name: redpanda-console
+    restart: on-failure
+    entrypoint: /bin/sh
+    command: -c "echo \"$$CONSOLE_CONFIG_FILE\" > /tmp/config.yml; /app/console"
+    environment:
+      CONFIG_FILEPATH: /tmp/config.yml
+      CONSOLE_CONFIG_FILE: |
+        kafka:
+          brokers: ["kafka:29092"]
+    depends_on:
+      - kafka
+    ports:
+      - "8080:8080"
+    networks:
+      - kaka_network
+
+  # Write-back DB.
+  postgres:
+    image: postgres:14.15
+    container_name: postgres
+    ports:
+      - "5434:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=kafka
+    networks:
+      - kaka_network
+
+networks:
+  kaka_network:
+    driver: bridge
